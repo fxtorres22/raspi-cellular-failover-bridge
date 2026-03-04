@@ -7,10 +7,12 @@ import json
 import os
 
 DEFAULT_CONFIG = {
-    "idle_interval_minutes": 30,
-    "active_interval_minutes": 1,
+    "poll_interval_seconds": 30,
+    "idle_write_interval_minutes": 30,
+    "active_write_interval_minutes": 1,
     "retention_days": 30,
-    "bridge_threshold_packets": 50,
+    "bridge_threshold_packets": 10,
+    "bridge_window_size": 10,
     "log_directory": "/var/log/bridge-monitor",
 }
 

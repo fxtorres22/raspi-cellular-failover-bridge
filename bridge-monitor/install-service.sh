@@ -30,6 +30,9 @@ echo "  Installing bridge-monitor into virtual environment..."
 "${VENV_DIR}/bin/pip" install --upgrade pip
 "${VENV_DIR}/bin/pip" install "${SCRIPT_DIR}"
 
+# Clean up build artifacts (they're owned by root and would block future non-sudo installs)
+rm -rf "${SCRIPT_DIR}/build" "${SCRIPT_DIR}/dist" "${SCRIPT_DIR}/bridge_monitor.egg-info"
+
 # Create a system-wide symlink so `bridge-monitor` works from anywhere
 ln -sf "${VENV_DIR}/bin/bridge-monitor" /usr/local/bin/bridge-monitor
 echo "  ✓ Symlinked /usr/local/bin/bridge-monitor → ${VENV_DIR}/bin/bridge-monitor"

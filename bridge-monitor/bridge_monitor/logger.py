@@ -2,10 +2,12 @@
 
 Writes system snapshots to daily JSON Lines files and automatically
 cleans up files older than the configured retention period.
+
+Polls bridge status frequently for responsive detection, but only
+writes log entries at a cadence that depends on bridge state.
 """
 
 import json
-import os
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -16,12 +18,15 @@ from bridge_monitor.stats import StatsCollector
 
 
 class BridgeLogger:
-    """Adaptive logger that adjusts frequency based on bridge activity.
+    """Adaptive logger that polls frequently but writes at different cadences.
 
-    - Idle mode: logs every `idle_interval_minutes`
-    - Active mode: logs every `active_interval_minutes`
+    - Polls every ``poll_interval_seconds`` to keep the sliding-window
+      bridge detector fed with fresh samples.
+    - Idle mode: writes every ``idle_write_interval_minutes``
+    - Active mode: writes every ``active_write_interval_minutes``
+    - On idle→active transition: writes immediately
     - Daily rotation: one file per day (bridge_YYYY-MM-DD.jsonl)
-    - Auto-cleanup: removes files older than `retention_days`
+    - Auto-cleanup: removes files older than ``retention_days``
     """
 
     def __init__(self, config: dict | None = None):
@@ -32,13 +37,15 @@ class BridgeLogger:
         """
         self.config = config or load_config()
         self.log_dir = Path(self.config["log_directory"])
-        self.idle_interval = self.config["idle_interval_minutes"] * 60  # seconds
-        self.active_interval = self.config["active_interval_minutes"] * 60  # seconds
+        self.poll_interval = self.config["poll_interval_seconds"]
+        self.idle_write_interval = self.config["idle_write_interval_minutes"] * 60
+        self.active_write_interval = self.config["active_write_interval_minutes"] * 60
         self.retention_days = self.config["retention_days"]
 
         self.collector = StatsCollector()
         self.detector = BridgeDetector(
-            threshold=self.config["bridge_threshold_packets"]
+            threshold=self.config["bridge_threshold_packets"],
+            window_size=self.config["bridge_window_size"],
         )
 
         self._running = False
@@ -80,49 +87,88 @@ class BridgeLogger:
     def run(self) -> None:
         """Start the logging loop (blocking).
 
+        Polls bridge status every ``poll_interval_seconds`` to keep the
+        sliding-window detector responsive.  Only collects full system
+        stats and writes a snapshot when the write interval has elapsed
+        or when a state transition occurs.
+
         Runs until interrupted (Ctrl+C or SIGTERM).
         """
         self._running = True
         print(f"Bridge logger started. Writing to {self.log_dir}/")
-        print(f"  Idle interval:   {self.config['idle_interval_minutes']} min")
-        print(f"  Active interval: {self.config['active_interval_minutes']} min")
-        print(f"  Threshold:       {self.config['bridge_threshold_packets']} packets")
-        print(f"  Retention:       {self.retention_days} days")
+        print(f"  Poll interval:         {self.config['poll_interval_seconds']}s")
+        print(
+            f"  Idle write interval:   "
+            f"{self.config['idle_write_interval_minutes']} min"
+        )
+        print(
+            f"  Active write interval: "
+            f"{self.config['active_write_interval_minutes']} min"
+        )
+        print(f"  Threshold:             {self.config['bridge_threshold_packets']} pkt/min")
+        print(f"  Window size:           {self.config['bridge_window_size']} samples")
+        print(f"  Retention:             {self.retention_days} days")
         print("")
 
         # Initial cleanup
         self._cleanup_old_logs()
 
         last_cleanup = time.time()
+        last_write = 0.0  # force an initial write on first tick
+        prev_active = False
 
         try:
             while self._running:
-                # Check bridge status
+                # 1. Poll bridge status (keeps the sliding window fed)
                 bridge_active = self.detector.is_bridge_active()
+                now = time.time()
 
-                # Collect stats
-                snapshot = self.collector.collect(bridge_active=bridge_active)
-                snapshot_dict = snapshot.to_dict()
-
-                # Write to log
-                self._write_snapshot(snapshot_dict)
-
-                status = "ACTIVE" if bridge_active else "idle"
-                interval = self.active_interval if bridge_active else self.idle_interval
-                print(
-                    f"  [{snapshot.timestamp}] Bridge: {status} | "
-                    f"CPU: {snapshot.cpu_percent}% | "
-                    f"Temp: {snapshot.cpu_temp_c}°C | "
-                    f"Next in {interval}s"
+                # 2. Determine if we should write a snapshot
+                became_active = bridge_active and not prev_active
+                write_interval = (
+                    self.active_write_interval
+                    if bridge_active
+                    else self.idle_write_interval
                 )
+                interval_elapsed = (now - last_write) >= write_interval
+
+                should_write = became_active or interval_elapsed
+
+                if should_write:
+                    snapshot = self.collector.collect(bridge_active=bridge_active)
+                    snapshot_dict = snapshot.to_dict()
+                    self._write_snapshot(snapshot_dict)
+                    last_write = now
+
+                    status = "ACTIVE" if bridge_active else "idle"
+                    reason = (
+                        "(transition)"
+                        if became_active
+                        else f"(next in {write_interval}s)"
+                    )
+                    print(
+                        f"  [{snapshot.timestamp}] Bridge: {status} | "
+                        f"CPU: {snapshot.cpu_percent}% | "
+                        f"Temp: {snapshot.cpu_temp_c}°C | "
+                        f"WRITE {reason}"
+                    )
+                else:
+                    status = "ACTIVE" if bridge_active else "idle"
+                    print(
+                        f"  [{datetime.now().isoformat()}] Bridge: {status} | "
+                        f"poll (write in "
+                        f"{max(0, int(write_interval - (now - last_write)))}s)"
+                    )
+
+                prev_active = bridge_active
 
                 # Periodic cleanup (once per hour)
-                if time.time() - last_cleanup > 3600:
+                if now - last_cleanup > 3600:
                     self._cleanup_old_logs()
-                    last_cleanup = time.time()
+                    last_cleanup = now
 
-                # Wait for next interval
-                time.sleep(interval)
+                # 3. Sleep until next poll
+                time.sleep(self.poll_interval)
 
         except KeyboardInterrupt:
             print("\nLogger stopped.")

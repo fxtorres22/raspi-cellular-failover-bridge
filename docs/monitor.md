@@ -7,7 +7,7 @@ A real-time monitoring tool and adaptive logger for the Raspberry Pi cellular fa
 ## Features
 
 - **Live TUI Dashboard** — CPU temp, CPU/RAM usage, network I/O per interface, bridge activity detection
-- **Adaptive Logging** — Logs every 30 min when idle, switches to every 1 min when bridge is active
+- **Adaptive Logging** — Polls every 30s for responsive detection; writes every 30 min when idle, every 1 min when active
 - **Daily Rotation** — One JSON file per day, auto-cleans files older than 30 days
 - **Configurable** — All intervals and thresholds adjustable via config file
 
@@ -90,7 +90,8 @@ cd ~/raspi-cellular-failover-bridge
 git pull origin main
 
 # Reinstall into the existing virtual environment
-/opt/bridge-monitor/venv/bin/pip install ./bridge-monitor
+cd bridge-monitor
+sudo /opt/bridge-monitor/venv/bin/pip install .
 
 # Restart the logging service to pick up changes
 sudo systemctl restart bridge-monitor-logger
@@ -107,21 +108,25 @@ Edit `/etc/bridge-monitor/config.json`:
 
 ```json title="/etc/bridge-monitor/config.json"
 {
-	"idle_interval_minutes": 30,
-	"active_interval_minutes": 1,
+	"poll_interval_seconds": 30,
+	"idle_write_interval_minutes": 30,
+	"active_write_interval_minutes": 1,
 	"retention_days": 30,
-	"bridge_threshold_packets": 50,
+	"bridge_threshold_packets": 10,
+	"bridge_window_size": 10,
 	"log_directory": "/var/log/bridge-monitor"
 }
 ```
 
-| Setting                    | Default                   | Description                                                                         |
-| -------------------------- | ------------------------- | ----------------------------------------------------------------------------------- |
-| `idle_interval_minutes`    | `30`                      | Logging interval when bridge is idle                                                |
-| `active_interval_minutes`  | `1`                       | Logging interval when bridge is active                                              |
-| `retention_days`           | `30`                      | Days to keep log files before cleanup                                               |
-| `bridge_threshold_packets` | `50`                      | Minimum packet delta to consider bridge active (filters cold-standby health checks) |
-| `log_directory`            | `/var/log/bridge-monitor` | Where log files are written                                                         |
+| Setting                         | Default                   | Description                                                            |
+| ------------------------------- | ------------------------- | ---------------------------------------------------------------------- |
+| `poll_interval_seconds`         | `30`                      | How often to poll bridge status (keeps detection responsive)           |
+| `idle_write_interval_minutes`   | `30`                      | How often to write a log entry when bridge is idle                     |
+| `active_write_interval_minutes` | `1`                       | How often to write a log entry when bridge is active                   |
+| `retention_days`                | `30`                      | Days to keep log files before cleanup                                  |
+| `bridge_threshold_packets`      | `10`                      | Minimum average packets/min to consider bridge active                  |
+| `bridge_window_size`            | `10`                      | Number of rate samples to average (higher = smoother, slower to react) |
+| `log_directory`                 | `/var/log/bridge-monitor` | Where log files are written                                            |
 
 !!! tip "After editing"
 Restart the service: `sudo systemctl restart bridge-monitor-logger`
@@ -182,6 +187,18 @@ The monitor detects bridge activity by polling the iptables MASQUERADE packet co
 sudo iptables -t nat -nvL POSTROUTING
 ```
 
-If the packet count increases by more than `bridge_threshold_packets` (default: 50) between polls, the bridge is considered **active**. This threshold filters out the router's cold-standby health-check pings, which are typically only a handful of packets.
+### Sliding Window Algorithm
 
-When the bridge becomes active, logging switches to the faster `active_interval_minutes` rate for detailed data capture.
+Instead of a simple on/off check, the detector uses a **sliding window average** for smooth, self-tuning detection:
+
+1. Each poll computes the instantaneous packet rate (packets/minute)
+2. The rate is added to a sliding window of the last `bridge_window_size` samples
+3. The **average** across the window is compared against `bridge_threshold_packets`
+
+This naturally handles bursty internet traffic:
+
+- **Heavy traffic** fills the window with high values → average stays high → bridge stays active longer
+- **Light traffic that stops** → zeros push the average down quickly → goes idle sooner
+- **Momentary gaps** between bursts → some high values remain in the window → no oscillation
+
+A 30-second minimum hold time prevents single-sample flicker at startup.
