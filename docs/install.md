@@ -86,6 +86,26 @@ This cleanly reverts all configuration changes (removes NM profiles, flushes ipt
 
 ---
 
+## Updating
+
+To update `raspi-bridge` after pulling new changes from the repository:
+
+```bash title="Update raspi-bridge"
+# Pull the latest code
+cd ~/raspi-cellular-failover-bridge
+git pull origin main
+
+# Rebuild the package
+cd raspi-bridge
+bash build.sh
+
+# Reinstall (automatically re-runs postinst)
+cd ..
+sudo dpkg -i raspi-bridge_1.0.0_all.deb
+```
+
+---
+
 ## Docker ARM Testing
 
 You can validate the package on Windows/WSL2 using Docker Desktop with ARM emulation:

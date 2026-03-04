@@ -80,6 +80,25 @@ sudo systemctl stop bridge-monitor-logger      # Stop
 sudo journalctl -u bridge-monitor-logger -f    # View live output
 ```
 
+### Updating
+
+To update `bridge-monitor` after pulling new changes from the repository:
+
+```bash title="Update bridge-monitor"
+# Pull the latest code
+cd ~/raspi-cellular-failover-bridge
+git pull origin main
+
+# Reinstall into the existing virtual environment
+/opt/bridge-monitor/venv/bin/pip install ./bridge-monitor
+
+# Restart the logging service to pick up changes
+sudo systemctl restart bridge-monitor-logger
+```
+
+!!! note "No need to re-run install-service.sh"
+The symlink at `/usr/local/bin/bridge-monitor` already points to the venv binary, so the updated code is available immediately after reinstalling.
+
 ---
 
 ## Configuration

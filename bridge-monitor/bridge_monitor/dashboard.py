@@ -81,6 +81,10 @@ def run_dashboard(config: dict | None = None) -> None:
             curses.init_pair(5, curses.COLOR_WHITE, -1)    # Normal
             curses.init_pair(6, curses.COLOR_MAGENTA, -1)  # Bridge active
 
+        # Clear entire screen and scroll buffer on first draw
+        stdscr.clear()
+        stdscr.refresh()
+
         while True:
             try:
                 # Check for quit key
@@ -105,12 +109,12 @@ def run_dashboard(config: dict | None = None) -> None:
                 row = 0
 
                 # ── Title bar ────────────────────────────────────────────
-                title = " 🛜  RASPI BRIDGE MONITOR "
-                stdscr.addstr(row, 0, "═" * width, curses.color_pair(3))
+                title = " RASPI BRIDGE MONITOR "
+                stdscr.addstr(row, 0, "=" * width, curses.color_pair(3))
                 center = max(0, (width - len(title)) // 2)
                 stdscr.addstr(row, center, title, curses.color_pair(3) | curses.A_BOLD)
                 row += 1
-                stdscr.addstr(row, 0, "═" * width, curses.color_pair(3))
+                stdscr.addstr(row, 0, "=" * width, curses.color_pair(3))
                 row += 2
 
                 # ── Bridge status ────────────────────────────────────────
