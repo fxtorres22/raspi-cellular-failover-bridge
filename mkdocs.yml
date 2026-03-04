@@ -1,0 +1,31 @@
+site_name: Raspi Cellular Failover Bridge
+repo_url: https://github.com/fxtorres22/raspi-cellular-failover-bridge
+nav:
+  - Home: index.md
+  - Raspberry Pi Configuration: config.md
+  - Router Configuration: router.md
+  - Quick Install: install.md
+  - Bridge Monitor: monitor.md
+theme:
+  name: material
+  icon:
+    repo: fontawesome/brands/github
+  palette:
+    scheme: slate
+    primary: indigo
+    accent: light blue
+  font:
+    text: Roboto
+    code: Roboto Mono
+  features:
+    - content.code.copy
+    - navigation.top
+    - navigation.sections
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format

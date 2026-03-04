@@ -1,0 +1,15 @@
+Package: raspi-bridge
+Version: 1.0.0
+Section: net
+Priority: optional
+Architecture: all
+Depends: iptables, iptables-persistent, netfilter-persistent, ethtool, tcpdump, networkd-dispatcher, network-manager
+Maintainer: fxtorres22 <fxtorres22@users.noreply.github.com>
+Description: Raspberry Pi Cellular Failover Bridge
+ Automates the configuration of a Raspberry Pi as a NAT bridge
+ between a USB LTE modem and a router for cellular failover.
+ Includes interface pinning, IP forwarding, iptables NAT/hardening,
+ and NetworkManager profile creation.
+ .
+ After installation, run 'sudo raspi-bridge-setup' to configure
+ MAC-based interface pinning for your specific hardware.

@@ -1,0 +1,6 @@
+# raspi-bridge: MAC-based interface pinning
+# This is a placeholder file. Run 'sudo raspi-bridge-setup' to
+# auto-detect and configure your actual MAC addresses.
+#
+# SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", ATTR{address}=="XX:XX:XX:XX:XX:XX", NAME="eth0"
+# SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", ATTR{address}=="YY:YY:YY:YY:YY:YY", NAME="eth1"

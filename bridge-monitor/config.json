@@ -1,0 +1,7 @@
+{
+  "idle_interval_minutes": 30,
+  "active_interval_minutes": 1,
+  "retention_days": 30,
+  "bridge_threshold_packets": 50,
+  "log_directory": "/var/log/bridge-monitor"
+}

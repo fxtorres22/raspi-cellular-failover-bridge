@@ -1,0 +1,22 @@
+[Unit]
+Description=Bridge Monitor Adaptive Logger
+Documentation=https://github.com/fxtorres22/raspi-cellular-failover-bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/bridge-monitor log
+Restart=on-failure
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=bridge-monitor
+
+# Security hardening
+NoNewPrivileges=false
+ProtectSystem=strict
+ReadWritePaths=/var/log/bridge-monitor
+
+[Install]
+WantedBy=multi-user.target
