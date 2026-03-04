@@ -1,0 +1,55 @@
+#!/bin/bash
+# postinst — runs after raspi-bridge is installed
+# Applies all system configuration for the cellular failover bridge.
+
+set -e
+
+echo "=== raspi-bridge: Configuring system ==="
+
+# ── 1. Enable IPv4 forwarding ────────────────────────────────────────────────
+echo "  [1/4] Enabling IPv4 forwarding..."
+sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || true
+
+# The sysctl.d conf file is already placed by the package at
+# /etc/sysctl.d/99-ipforward.conf, so it persists across reboots.
+
+# ── 2. Create NetworkManager profiles ────────────────────────────────────────
+echo "  [2/4] Creating NetworkManager profiles..."
+
+# Remove any existing profiles we manage (idempotent reinstall)
+nmcli connection delete "eth0-static" 2>/dev/null || true
+nmcli connection delete "eth1-lte"    2>/dev/null || true
+
+# eth0 — LAN/Uplink to router (static IP)
+nmcli connection add type ethernet ifname eth0 con-name "eth0-static" \
+    ipv4.addresses 192.168.100.1/24 \
+    ipv4.method manual \
+    2>/dev/null || echo "    WARNING: Could not create eth0-static profile (interface may not exist yet)"
+
+# eth1 — WAN/LTE modem (DHCP + MTU 1420)
+nmcli connection add type ethernet ifname eth1 con-name "eth1-lte" \
+    ipv4.method auto \
+    802-3-ethernet.mtu 1420 \
+    2>/dev/null || echo "    WARNING: Could not create eth1-lte profile (interface may not exist yet)"
+
+# ── 3. Apply iptables rules ─────────────────────────────────────────────────
+echo "  [3/4] Applying iptables NAT and security rules..."
+if [ -x /usr/lib/raspi-bridge/iptables-rules.sh ]; then
+    /usr/lib/raspi-bridge/iptables-rules.sh
+else
+    echo "    WARNING: iptables-rules.sh not found or not executable"
+fi
+
+# ── 4. Reload udev rules ────────────────────────────────────────────────────
+echo "  [4/4] Reloading udev rules..."
+udevadm control --reload-rules 2>/dev/null || true
+udevadm trigger 2>/dev/null || true
+
+echo ""
+echo "=== raspi-bridge: Installation complete ==="
+echo ""
+echo "  NEXT STEP: Run 'sudo raspi-bridge-setup' to configure"
+echo "  MAC-based interface pinning for your hardware."
+echo ""
+
+exit 0

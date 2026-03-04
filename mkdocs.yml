@@ -4,6 +4,8 @@ nav:
   - Home: index.md
   - Raspberry Pi Configuration: config.md
   - Router Configuration: router.md
+  - Quick Install: install.md
+  - Bridge Monitor: monitor.md
 theme:
   name: material
   icon:
@@ -13,8 +15,8 @@ theme:
     primary: indigo
     accent: light blue
   font:
-    text: roboto
-    code: roboto mono
+    text: Roboto
+    code: Roboto Mono
   features:
     - content.code.copy
     - navigation.top

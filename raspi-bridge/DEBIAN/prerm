@@ -1,0 +1,32 @@
+#!/bin/bash
+# prerm — runs before raspi-bridge is removed
+# Reverts all system configuration applied by the package.
+
+set -e
+
+echo "=== raspi-bridge: Reverting configuration ==="
+
+# ── 1. Remove NetworkManager profiles ───────────────────────────────────────
+echo "  [1/3] Removing NetworkManager profiles..."
+nmcli connection delete "eth0-static" 2>/dev/null || true
+nmcli connection delete "eth1-lte"    2>/dev/null || true
+
+# ── 2. Flush iptables rules ─────────────────────────────────────────────────
+echo "  [2/3] Flushing iptables rules..."
+iptables -F 2>/dev/null || true
+iptables -t nat -F 2>/dev/null || true
+iptables -t mangle -F 2>/dev/null || true
+netfilter-persistent save 2>/dev/null || true
+
+# ── 3. Disable IPv4 forwarding ──────────────────────────────────────────────
+echo "  [3/3] Disabling IPv4 forwarding..."
+sysctl -w net.ipv4.ip_forward=0 >/dev/null 2>&1 || true
+
+# Note: the sysctl.d conf file and udev rules file are removed automatically
+# by dpkg since they are part of the package file list.
+
+echo ""
+echo "=== raspi-bridge: Configuration reverted ==="
+echo ""
+
+exit 0

@@ -40,9 +40,11 @@ The router sees a normal Ethernet gateway on its secondary WAN port and can hand
 
 ## Guide Overview
 
-This documentation is split into two sections:
+This documentation is split into four sections:
 
 1. **[Raspberry Pi Configuration](config.md)** — Set up the Pi as a NAT bridge: interface pinning, IP forwarding, iptables rules, and validation.
 2. **[Router Configuration](router.md)** — Configure your router's Dual-WAN failover to use the Pi as the secondary WAN gateway.
+3. **[Quick Install (Debian Package)](install.md)** — Automate all Pi configuration with a single package install.
+4. **[Bridge Monitor](monitor.md)** — Real-time dashboard and adaptive logging for monitoring bridge activity.
 
-Follow both sections in order to get a fully working cellular failover setup.
+Follow sections 1–2 for manual setup, or use section 3 to automate it. Section 4 adds monitoring and logging on top.
